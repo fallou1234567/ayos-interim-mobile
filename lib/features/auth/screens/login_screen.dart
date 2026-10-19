@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
+import '../data/auth_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -12,9 +14,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  bool isLoading = false;
+  String? errorMessage;
   bool obscurePassword = true;
   bool rememberMe = true;
 
@@ -25,8 +30,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    context.go('/app');
+  Future<void> _login() async {
+    FocusScope.of(context).unfocus();
+
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        errorMessage =
+            'Veuillez renseigner votre e-mail et votre mot de passe.';
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      await _authService.login(email: email, password: password);
+
+      if (!mounted) return;
+
+      context.go('/app');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -39,7 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
           // ==========================================================
           // BACKGROUND IMAGE
           // ==========================================================
-
           Positioned(
             top: 0,
             left: 0,
@@ -92,7 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   // ====================================================
                   // TITRE
                   // ====================================================
-
                   const Center(
                     child: Text(
                       'Heureuse de vous revoir.',
@@ -214,16 +253,58 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 8),
 
+                  if (errorMessage != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // ====================================================
                   // LOGIN BUTTON
                   // ====================================================
                   SizedBox(
                     width: double.infinity,
-
                     child: ElevatedButton(
-                      onPressed: _login,
-
-                      child: const Text('Ouvrir mon espace  →'),
+                      onPressed: isLoading ? null : _login,
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Ouvrir mon espace  →'),
                     ),
                   ),
                 ],

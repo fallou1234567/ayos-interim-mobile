@@ -19,6 +19,8 @@ dependencies:
   go_router: ^16.2.1
   intl: ^0.20.2
   cached_network_image: ^3.4.1
+  dio_cookie_manager: ^3.5.0
+  cookie_jar: ^4.0.9
 
 dev_dependencies:
   flutter_test:
