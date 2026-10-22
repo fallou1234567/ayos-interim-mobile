@@ -1,7 +1,7 @@
 class ApiConstants {
   ApiConstants._();
 
-  static const baseUrl = 'https://api.example.com/api';
+  static const baseUrl = 'https://api.ayostaff.com/api';
 
   static const login = '/login';
   static const logout = '/logout';

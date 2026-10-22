@@ -79,4 +79,21 @@ class AuthService {
 
     return 'Une erreur est survenue (${e.response?.statusCode}).';
   }
+
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+  }) async {
+    try {
+      await _dio.patch(
+        ApiEndpoints.updateProfile,
+        data: {'name': name.trim(), 'phone': phone.trim()},
+      );
+
+      // Recharge le profil réel après la modification.
+      return await getCurrentUser();
+    } on DioException catch (e) {
+      throw Exception(_errorMessage(e));
+    }
+  }
 }

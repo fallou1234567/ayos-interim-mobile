@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 import '../../../core/storage/token_storage.dart';
@@ -17,19 +16,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _user != null;
   String? get errorMessage => _errorMessage;
 
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _user = await _authService.login(
-        email: email,
-        password: password,
-      );
+      _user = await _authService.login(email: email, password: password);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -59,20 +52,39 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
+  Future<bool> updateProfile({
+    required String name,
+    required String phone,
+  }) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      await _authService.logout();
-    } catch (_) {
-      // La session locale est également fermée si le serveur
-      // est temporairement inaccessible.
-      await TokenStorage.clear();
+      _user = await _authService.updateProfile(name: name, phone: phone);
+
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
     } finally {
-      _user = null;
       _isLoading = false;
       notifyListeners();
     }
   }
+
+Future<void> logout() async {
+  _isLoading = true;
+  notifyListeners();
+
+  try {
+    await _authService.logout();
+  } catch (_) {
+    await TokenStorage.clear();
+  } finally {
+    _user = null;
+    _isLoading = false;
+    notifyListeners();
+  }
+}
 }

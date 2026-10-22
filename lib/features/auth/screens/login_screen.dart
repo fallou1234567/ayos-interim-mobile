@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
-import '../data/auth_service.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final AuthService _authService = AuthService();
+  // final AuthService _authService = AuthService();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
@@ -50,11 +52,24 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.login(email: email, password: password);
+      final authProvider = context.read<AuthProvider>();
+
+      final success = await authProvider.login(
+        email: email,
+        password: password,
+      );
 
       if (!mounted) return;
 
-      context.go('/app');
+      if (success) {
+        context.go('/app');
+      } else {
+        setState(() {
+          errorMessage =
+              authProvider.errorMessage ??
+              'Une erreur est survenue lors de la connexion.';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
 

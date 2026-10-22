@@ -1,8 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,41 +18,45 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
     _initialize();
   }
 
   Future<void> _initialize() async {
-    await Future.delayed(const Duration(seconds: 5));
+    // Afficher le splash pendant au moins 2 secondes.
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    context.go('/login');
+    final authProvider = context.read<AuthProvider>();
+
+    // Vérifier et restaurer la session existante.
+    await authProvider.restoreSession();
+
+    if (!mounted) return;
+
+    // Rediriger selon l'état de la session.
+    if (authProvider.isAuthenticated) {
+      context.go('/app');
+    } else {
+      context.go('/login');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.navyDark,
-
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ==========================================
-          // BACKGROUND
-          // ==========================================
-          Image.asset('assets/images/splash.png', fit: BoxFit.cover),
-
-          // ==========================================
-          // CONTENU DYNAMIQUE
-          // ==========================================
+          Image.asset(
+            'assets/images/splash.png',
+            fit: BoxFit.cover,
+          ),
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // ====================================
-                // LOGO
-                // ====================================
                 Container(
                   width: 110,
                   height: 110,
@@ -69,12 +76,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // ====================================
-                // NOM APPLICATION
-                // ====================================
                 const Text(
                   AppConstants.appName,
                   style: TextStyle(
@@ -83,12 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
-                // ====================================
-                // SOUS-TITRE
-                // ====================================
                 const Text(
                   AppConstants.appSubtitle,
                   style: TextStyle(
@@ -98,12 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(height: 40),
-
-                // ====================================
-                // LOADING
-                // ====================================
                 const SizedBox(
                   width: 24,
                   height: 24,

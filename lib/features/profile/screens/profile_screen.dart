@@ -1,257 +1,246 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import 'personal_information_screen.dart';
+import 'preferences_screen.dart';
+import 'skills_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.user;
+
+    final firstName = user?.firstName ?? '';
+    final lastName = user?.lastName ?? '';
+
+    final displayName = user?.fullName.isNotEmpty == true
+        ? user!.fullName
+        : 'Mon profil';
+
+    final initials =
+        ((firstName.isNotEmpty ? firstName[0] : '') +
+                (lastName.isNotEmpty ? lastName[0] : ''))
+            .toUpperCase();
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
-          child: Column(
-            children: [
-              _header(),
-
-              const SizedBox(height: 10),
-
-              _statistics(),
-
-              const SizedBox(height: 14),
-
-              _menuItem(
-                icon: Icons.person_outline,
-                title: 'Informations personnelles',
-              ),
-
-              const SizedBox(height: 7),
-
-              _menuItem(
-                icon: Icons.business_center_outlined,
-                title: 'Mes métiers',
-              ),
-
-              const SizedBox(height: 7),
-
-              _menuItem(
-                icon: Icons.calendar_month_outlined,
-                title: 'Préférences de missions',
-              ),
-
-              const SizedBox(height: 7),
-
-              _menuItem(
-                icon: Icons.support_outlined,
-                title: 'Aide et assistance',
-              ),
-
-              const SizedBox(height: 28),
-
-              TextButton(
-                onPressed: () {},
-                child: const Text(
-                  'Se déconnecter',
-                  style: TextStyle(
-                    color: AppColors.red,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppBar(
+        title: const Text(
+          'Mon profil',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: false,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF202124),
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _header() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.navy,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
+          // En-tête du profil
           Container(
-            width: 145,
-            height: 50,
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.cyanLight,
-              borderRadius: BorderRadius.circular(30),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
             ),
-            alignment: Alignment.center,
-            child: const Text(
-              'FD',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  'PROFIL ACTIF',
-                  style: TextStyle(
-                    color: AppColors.orange,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: const Color(0xFFE8F0FE),
+                  child: Text(
+                    initials.isEmpty ? 'AY' : initials,
+                    style: const TextStyle(
+                      color: Color(0xFF2457C5),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-
-                SizedBox(height: 5),
-
-                Text(
-                  'Fatou DIOP',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        user?.email ?? '',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        user?.role ?? 'Utilisateur',
+                        style: const TextStyle(
+                          color: Color(0xFF2457C5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-
-                SizedBox(height: 3),
-
-                Text(
-                  'Réceptionniste · Night Auditor',
-                  style: TextStyle(color: Colors.white60, fontSize: 7),
                 ),
               ],
             ),
           ),
 
-          const Icon(
-            Icons.verified_outlined,
-            color: AppColors.orange,
-            size: 18,
+          const SizedBox(height: 25),
+
+          const Text(
+            'Mon compte',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-        ],
-      ),
-    );
-  }
+          const SizedBox(height: 10),
 
-  Widget _statistics() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Row(
-        children: [
-          Expanded(
-            child: _Stat(value: '64', label: 'Missions'),
-          ),
-
-          _VerticalDivider(),
-
-          Expanded(
-            child: _Stat(value: '487 h', label: 'Heures'),
+          _menuItem(
+            context,
+            icon: Icons.person_outline,
+            title: 'Informations personnelles',
+            subtitle: 'Modifier mon nom et mon téléphone',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PersonalInformationScreen(),
+                ),
+              );
+            },
           ),
 
-          _VerticalDivider(),
-
-          Expanded(
-            child: _Stat(value: '4.6 ⭐', label: 'Note'),
+          _menuItem(
+            context,
+            icon: Icons.work_outline,
+            title: 'Compétences et métiers',
+            subtitle: 'Consulter mes compétences',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SkillsScreen()),
+              );
+            },
           ),
-        ],
-      ),
-    );
-  }
 
-  Widget _menuItem({required IconData icon, required String title}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.lightBlue,
-              borderRadius: BorderRadius.circular(10),
+          _menuItem(
+            context,
+            icon: Icons.settings_outlined,
+            title: 'Préférences',
+            subtitle: 'Gérer les préférences de l’application',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PreferencesScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 25),
+
+          // Déconnexion
+          OutlinedButton.icon(
+            onPressed: () => _confirmLogout(context),
+            icon: const Icon(Icons.logout, color: Colors.red),
+            label: const Text(
+              'Se déconnecter',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
             ),
-            child: Icon(icon, size: 16, color: AppColors.navy),
-          ),
-
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              side: const BorderSide(color: Colors.redAccent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-
-          const Icon(
-            Icons.chevron_right,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
         ],
       ),
     );
   }
-}
 
-class _Stat extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _Stat({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+  Widget _menuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F4FF),
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: Icon(icon, color: const Color(0xFF2457C5)),
         ),
-
-        const SizedBox(height: 3),
-
-        Text(
-          label,
-          style: const TextStyle(fontSize: 7, color: AppColors.textSecondary),
-        ),
-      ],
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      ),
     );
   }
-}
 
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
+  Future<void> _confirmLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text(
+          'Voulez-vous vraiment vous déconnecter de votre compte ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 1, height: 32, color: AppColors.border);
+    if (shouldLogout != true || !context.mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      await authProvider.logout();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la déconnexion : $e')),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // Supprime les anciennes pages de navigation
+    // et redirige l'utilisateur vers la connexion.
+    context.go('/login');
   }
 }
