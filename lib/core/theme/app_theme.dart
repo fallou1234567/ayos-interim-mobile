@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
@@ -5,73 +6,79 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light = ThemeData(
+  static final ThemeData light = ThemeData(
     useMaterial3: true,
-
-    fontFamily: 'Roboto',
-
+    brightness: Brightness.light,
     scaffoldBackgroundColor: AppColors.background,
-
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.navy,
-      primary: AppColors.navy,
+      brightness: Brightness.light,
       surface: AppColors.white,
     ),
-
+    cardColor: AppColors.white,
+    dividerColor: AppColors.border,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.background,
       foregroundColor: AppColors.textPrimary,
       elevation: 0,
-      centerTitle: false,
     ),
-
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: AppColors.textPrimary),
+      bodyMedium: TextStyle(color: AppColors.textPrimary),
+      bodySmall: TextStyle(color: AppColors.textSecondary),
+      titleLarge: TextStyle(color: AppColors.textPrimary),
+      titleMedium: TextStyle(color: AppColors.textPrimary),
+      titleSmall: TextStyle(color: AppColors.textPrimary),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.white,
-
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 15,
-      ),
-
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: AppColors.border,
-        ),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
-
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: AppColors.border,
-        ),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
+    ),
+  );
 
-      focusedBorder: OutlineInputBorder(
+  static final ThemeData dark = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: const Color(0xFF101722),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.navy,
+      brightness: Brightness.dark,
+      surface: const Color(0xFF1B2636),
+    ),
+    cardColor: const Color(0xFF1B2636),
+    dividerColor: const Color(0xFF344154),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF101722),
+      foregroundColor: Colors.white,
+      elevation: 0,
+    ),
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: Color(0xFFE8EDF5)),
+      bodyMedium: TextStyle(color: Color(0xFFE8EDF5)),
+      bodySmall: TextStyle(color: Color(0xFFADB9CA)),
+      titleLarge: TextStyle(color: Colors.white),
+      titleMedium: TextStyle(color: Colors.white),
+      titleSmall: TextStyle(color: Colors.white),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF1B2636),
+      border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: AppColors.navy,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF344154)),
       ),
-    ),
-
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.navy,
-        foregroundColor: AppColors.white,
-        minimumSize: const Size(double.infinity, 52),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF344154)),
       ),
-    ),
-
-    dividerTheme: const DividerThemeData(
-      color: AppColors.border,
-      thickness: 1,
     ),
   );
 }

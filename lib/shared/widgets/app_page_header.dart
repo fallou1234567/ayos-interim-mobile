@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/theme_provider.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../navigation/app_navigation.dart';
 import 'notification_center_sheet.dart';
@@ -30,11 +31,12 @@ class AppPageHeader extends StatelessWidget {
       return;
     }
 
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -57,6 +59,10 @@ class AppPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final themeProvider = context.watch<ThemeProvider>();
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = themeProvider.isDarkMode;
 
     final firstName = user?.firstName ?? '';
     final lastName = user?.lastName ?? '';
@@ -68,7 +74,11 @@ class AppPageHeader extends StatelessWidget {
 
     const navy = Color(0xFF193B7A);
     const muted = Color(0xFF8191A8);
-    const background = Color(0xFFF8F7F4);
+
+    final background = theme.scaffoldBackgroundColor;
+    final titleColor = colors.onSurface;
+    final labelColor = isDark ? colors.primary : navy;
+    final secondaryColor = isDark ? colors.onSurfaceVariant : muted;
 
     return Container(
       color: background,
@@ -84,22 +94,31 @@ class AppPageHeader extends StatelessWidget {
                   height: 42,
                   alignment: Alignment.centerLeft,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, error, stackTrace) => const Text(
+                  errorBuilder: (_, error, stackTrace) => Text(
                     'AYOS\nMON ESPACE',
                     style: TextStyle(
-                      color: navy,
+                      color: labelColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
               _HeaderIconButton(
-                icon: Icons.wb_sunny_outlined,
-                onTap: onThemeTap,
+                icon: isDark
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+                tooltip: isDark
+                    ? 'Activer le mode clair'
+                    : 'Activer le mode sombre',
+                onTap: onThemeTap ??
+                    () {
+                      context.read<ThemeProvider>().toggleTheme();
+                    },
               ),
               const SizedBox(width: 10),
               _HeaderIconButton(
                 icon: Icons.notifications_none_rounded,
+                tooltip: 'Notifications',
                 onTap: () => _openNotifications(context),
               ),
               const SizedBox(width: 10),
@@ -110,11 +129,15 @@ class AppPageHeader extends StatelessWidget {
                   onTap: () => _openProfile(context),
                   child: CircleAvatar(
                     radius: 20,
-                    backgroundColor: navy,
+                    backgroundColor: isDark
+                        ? colors.primary
+                        : navy,
                     child: Text(
                       initials.isEmpty ? 'AY' : initials,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark
+                            ? colors.onPrimary
+                            : Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 17,
                       ),
@@ -129,8 +152,8 @@ class AppPageHeader extends StatelessWidget {
               sectionLabel!.trim().isNotEmpty) ...[
             Text(
               sectionLabel!.toUpperCase(),
-              style: const TextStyle(
-                color: navy,
+              style: TextStyle(
+                color: labelColor,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 3,
@@ -140,8 +163,8 @@ class AppPageHeader extends StatelessWidget {
           ],
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF202D43),
+            style: TextStyle(
+              color: titleColor,
               fontSize: 20,
               fontWeight: FontWeight.w400,
               height: 1.15,
@@ -150,8 +173,8 @@ class AppPageHeader extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             description,
-            style: const TextStyle(
-              color: muted,
+            style: TextStyle(
+              color: secondaryColor,
               fontSize: 15,
               height: 1.5,
             ),
@@ -165,30 +188,38 @@ class AppPageHeader extends StatelessWidget {
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
+  final String? tooltip;
 
   const _HeaderIconButton({
     required this.icon,
     this.onTap,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         border: Border.all(
-          color: const Color(0xFFDCE3EC),
+          color: theme.brightness == Brightness.dark
+              ? colors.outline
+              : const Color(0xFFDCE3EC),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(19),
       ),
       child: IconButton(
+        tooltip: tooltip,
         onPressed: onTap,
         icon: Icon(
           icon,
-          color: const Color(0xFF8191A8),
+          color: colors.onSurfaceVariant,
           size: 20,
         ),
       ),

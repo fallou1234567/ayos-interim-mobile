@@ -1,7 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_page_header.dart';
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
@@ -11,28 +14,200 @@ class DocumentsScreen extends StatefulWidget {
 }
 
 class _DocumentsScreenState extends State<DocumentsScreen> {
-  final List<_LocalDocument> _documents = [
-    _LocalDocument(title: "Pièce d'identité", icon: Icons.badge_outlined),
-    _LocalDocument(
-      title: 'Carte Vitale',
+  final Dio _dio = ApiClient.instance.dio;
+
+  static const int _maxFileSize = 10 * 1024 * 1024;
+
+  final List<_DocumentType> _documentTypes = const [
+    _DocumentType(
+      category: 'IDENTITY',
+      title: "Pièce d'identité",
+      icon: Icons.badge_outlined,
+    ),
+    _DocumentType(
+      category: 'HEALTH_CARD',
+      title: 'Carte de santé',
       icon: Icons.health_and_safety_outlined,
     ),
-    _LocalDocument(title: 'RIB', icon: Icons.account_balance_outlined),
-    _LocalDocument(title: 'Titre de séjour', icon: Icons.credit_card_outlined),
+    _DocumentType(
+      category: 'BANK_DETAILS',
+      title: 'RIB / Coordonnées bancaires',
+      icon: Icons.account_balance_outlined,
+    ),
+    _DocumentType(
+      category: 'RESIDENCE_PERMIT',
+      title: 'Titre de séjour',
+      icon: Icons.credit_card_outlined,
+    ),
   ];
 
+  List<_Document> _documents = [];
+  bool _isLoading = true;
   bool _isPicking = false;
+  String? _errorMessage;
+  String? _uploadingCategory;
 
-  int get _providedCount =>
-      _documents.where((doc) => doc.fileName != null).length;
+  int get _providedCount => _documentTypes.where((type) {
+    return _documents.any((document) => document.category == type.category);
+  }).length;
 
-  int get _verifiedCount => _documents.where((doc) => doc.verified).length;
+  int get _verifiedCount => _documentTypes.where((type) {
+    return _documents.any(
+      (document) =>
+          document.category == type.category && _isApproved(document.status),
+    );
+  }).length;
 
   double get _progress =>
-      _documents.isEmpty ? 0 : _verifiedCount / _documents.length;
+      _documentTypes.isEmpty ? 0 : _verifiedCount / _documentTypes.length;
 
-  Future<void> _pickDocument(int index) async {
-    if (_isPicking) return;
+  @override
+  void initState() {
+    super.initState();
+    _loadDocuments();
+  }
+
+  bool _isApproved(String status) {
+    return const {
+      'APPROVED',
+      'VALIDATED',
+      'VERIFIED',
+    }.contains(status.toUpperCase());
+  }
+
+  bool _isRejected(String status) {
+    return const {'REJECTED', 'REFUSED'}.contains(status.toUpperCase());
+  }
+
+  String _statusLabel(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return 'En attente de vérification';
+      case 'APPROVED':
+      case 'VALIDATED':
+      case 'VERIFIED':
+        return 'Validé';
+      case 'REJECTED':
+      case 'REFUSED':
+        return 'Refusé';
+      default:
+        return status.isEmpty ? 'Statut inconnu' : status;
+    }
+  }
+
+  Color _statusColor(String status) {
+    if (_isApproved(status)) return AppColors.green;
+    if (_isRejected(status)) return Colors.red;
+    if (status.toUpperCase() == 'PENDING') return AppColors.orange;
+    return AppColors.textSecondary;
+  }
+
+
+  _Document? _latestDocumentFor(String category) {
+    final matches = _documents
+        .where((document) => document.category == category)
+        .toList();
+
+    if (matches.isEmpty) return null;
+
+    matches.sort((a, b) {
+      final aDate = a.uploadedAt ?? DateTime(1970);
+      final bDate = b.uploadedAt ?? DateTime(1970);
+      return bDate.compareTo(aDate);
+    });
+
+    return matches.first;
+  }
+
+  Future<void> _loadDocuments({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final response = await _dio.get('/employees/me/documents');
+
+      final dynamic responseData = response.data;
+      final dynamic rawDocuments =
+          responseData is Map && responseData['data'] is List
+          ? responseData['data']
+          : responseData;
+
+      if (rawDocuments is! List) {
+        throw Exception(
+          'Le format des documents retourné par le serveur est invalide.',
+        );
+      }
+
+      final documents = rawDocuments.map((item) {
+        return _Document.fromJson(Map<String, dynamic>.from(item as Map));
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _documents = documents;
+        _errorMessage = null;
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = _apiErrorMessage(e);
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Impossible de charger les documents.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  String _apiErrorMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+
+    if (statusCode == 401 || statusCode == 403) {
+      return 'Votre session a expiré ou vous n’avez pas accès à ces documents. '
+          'Veuillez vous reconnecter si nécessaire.';
+    }
+
+    if (statusCode == 413) {
+      return 'Le fichier envoyé est trop volumineux.';
+    }
+
+    if (statusCode == 422) {
+      return 'Le fichier ou la catégorie est refusé par le serveur. '
+          'Vérifiez le document et réessayez.';
+    }
+
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'Le serveur met trop de temps à répondre. Réessayez.';
+    }
+
+    if (e.type == DioExceptionType.connectionError) {
+      return 'Connexion impossible. Vérifiez votre connexion Internet.';
+    }
+
+    final data = e.response?.data;
+    if (data is Map && data['message'] is String) {
+      return data['message'] as String;
+    }
+
+    return 'Une erreur est survenue lors du chargement des documents.';
+  }
+
+  Future<void> _pickAndUploadDocument(_DocumentType type) async {
+    if (_isPicking || _uploadingCategory != null) return;
 
     setState(() => _isPicking = true);
 
@@ -41,48 +216,99 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
         allowMultiple: false,
+        withData: false,
       );
 
       if (!mounted || result == null || result.files.isEmpty) return;
 
       final file = result.files.single;
 
+      if (file.size > _maxFileSize) {
+        _showMessage(
+          'Le fichier dépasse la limite autorisée de 10 Mo.',
+          isError: true,
+        );
+        return;
+      }
+
+      final path = file.path;
+      if (path == null || path.isEmpty) {
+        _showMessage(
+          'Impossible d’accéder au fichier sélectionné sur cet appareil.',
+          isError: true,
+        );
+        return;
+      }
+
       setState(() {
-        _documents[index]
-          ..fileName = file.name
-          ..filePath = file.path
-          ..verified = false;
+        _isPicking = false;
+        _uploadingCategory = type.category;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${file.name} ajouté localement. '
-            'Il reste à transmettre et à faire vérifier.',
-          ),
-          backgroundColor: AppColors.navy,
-        ),
-      );
+      final formData = FormData.fromMap({
+        'category': type.category,
+        'file': await MultipartFile.fromFile(path, filename: file.name),
+      });
+
+      await _dio.post('/employees/me/documents', data: formData);
+
+      if (!mounted) return;
+
+      _showMessage('${type.title} envoyé avec succès.');
+
+      await _loadDocuments(showLoader: false);
+    } on DioException catch (e) {
+      if (!mounted) return;
+
+      _showMessage(_apiErrorMessage(e), isError: true);
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible de sélectionner ce fichier.')),
+      _showMessage(
+        'Impossible d’envoyer le document. Veuillez réessayer.',
+        isError: true,
       );
     } finally {
       if (mounted) {
-        setState(() => _isPicking = false);
+        setState(() {
+          _isPicking = false;
+          _uploadingCategory = null;
+        });
       }
     }
   }
 
-  void _showDocumentDetails(int index) {
-    final document = _documents[index];
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red.shade700 : AppColors.navy,
+        ),
+      );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Date indisponible';
+
+    final d = date.toLocal();
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+
+    return '$day/$month/${d.year}';
+  }
+
+  void _showDocumentDetails(_DocumentType type) {
+    final document = _latestDocumentFor(type.category);
 
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: AppColors.white,
+      isScrollControlled: true,
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
@@ -92,7 +318,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  document.title,
+                  type.title,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -101,56 +327,77 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  document.fileName ?? 'Aucun fichier sélectionné',
+                  document?.fileName ?? 'Aucun document envoyé',
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Le fichier reste sur cet appareil. '
-                  'Il n’a pas été envoyé à AYOS.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: AppColors.textSecondary,
+                if (document != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Statut : ${_statusLabel(document.status)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _statusColor(document.status),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Envoyé le ${_formatDate(document.uploadedAt)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  if (document.reviewNote != null &&
+                      document.reviewNote!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Commentaire de vérification',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      document.reviewNote!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isPicking
+                    onPressed: _isPicking || _uploadingCategory != null
                         ? null
                         : () {
                             Navigator.pop(sheetContext);
-                            _pickDocument(index);
+                            _pickAndUploadDocument(type);
                           },
                     icon: const Icon(Icons.upload_file),
                     label: Text(
-                      document.fileName == null
-                          ? 'Choisir un fichier'
-                          : 'Remplacer le fichier',
+                      document == null
+                          ? 'Choisir et envoyer'
+                          : 'Envoyer un nouveau fichier',
                     ),
                   ),
                 ),
-                if (document.fileName != null) ...[
+                if (document != null && _isRejected(document.status)) ...[
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          document
-                            ..fileName = null
-                            ..filePath = null
-                            ..verified = false;
-                        });
-                        Navigator.pop(sheetContext);
-                      },
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Retirer le fichier'),
+                  const Text(
+                    'Ce document a été refusé. Consultez le commentaire '
+                    'de vérification avant de le renvoyer.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -168,15 +415,18 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            // Aucun appel réseau dans cette version locale.
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-          },
+          onRefresh: () => _loadDocuments(showLoader: false),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
             children: [
-              _header(),
+             AppPageHeader(
+  sectionLabel: 'Dossier administratif',
+  title: 'Mes documents',
+  description:
+      'Envoyez vos pièces administratives à AYOS et suivez leur statut de vérification.',
+),
+const SizedBox(height: 0),
               const SizedBox(height: 25),
               const Text(
                 'DOSSIER ADMINISTRATIF',
@@ -187,66 +437,125 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   color: AppColors.navy,
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Mes documents',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sélectionnez vos pièces administratives. '
-                'Vous pourrez les transmettre à AYOS lorsque '
-                'la connexion au serveur sera disponible.',
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.5,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              // const SizedBox(height: 8),
+              // const Text(
+              //   'Mes documents',
+              //   style: TextStyle(
+              //     fontSize: 21,
+              //     fontWeight: FontWeight.w400,
+              //     color: AppColors.textPrimary,
+              //   ),
+              // ),
+              // const SizedBox(height: 8),
+              // const Text(
+              //   'Envoyez vos pièces administratives à AYOS et '
+              //   'suivez leur statut de vérification.',
+              //   style: TextStyle(
+              //     fontSize: 10,
+              //     height: 1.5,
+              //     color: AppColors.textSecondary,
+              //   ),
+              // ),
+              // const SizedBox(height: 18),
               const SizedBox(height: 18),
-              _verificationCard(),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Expanded(
+              if (_isLoading && _documents.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ...[
+                if (_errorMessage != null) ...[
+                  _errorCard(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _loadDocuments(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Réessayer'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _verificationCard(),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Mes pièces',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$_providedCount/${_documentTypes.length} envoyées',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...List.generate(_documentTypes.length, (index) {
+                  final type = _documentTypes[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _documentCard(type),
+                  );
+                }),
+                const SizedBox(height: 12),
+                _confidentialityCard(),
+                if (_uploadingCategory != null) ...[
+                  const SizedBox(height: 16),
+                  const Center(child: CircularProgressIndicator()),
+                  const SizedBox(height: 8),
+                  const Center(
                     child: Text(
-                      'Mes pièces',
+                      'Envoi du document en cours…',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ),
-                  Text(
-                    '$_providedCount/${_documents.length} ajoutés',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              ...List.generate(_documents.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _documentCard(index),
-                );
-              }),
-              const SizedBox(height: 12),
-              _confidentialityCard(),
-              if (_isPicking) ...[
-                const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator()),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _errorCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0F0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFCCCC)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              _errorMessage ?? 'Une erreur est survenue.',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -310,7 +619,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       '$_verifiedCount document'
                       '${_verifiedCount > 1 ? 's' : ''} vérifié'
                       '${_verifiedCount > 1 ? 's' : ''} '
-                      'sur ${_documents.length}',
+                      'sur ${_documentTypes.length}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -319,10 +628,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _verifiedCount == _documents.length
-                          ? 'Toutes les pièces sont vérifiées.'
-                          : '$_providedCount pièce(s) sélectionnée(s). '
-                                'Vérification à effectuer par AYOS.',
+                      '$_providedCount pièce(s) envoyée(s). '
+                      'Suivez leur vérification par AYOS.',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 9,
@@ -353,33 +660,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     );
   }
 
-  Widget _documentCard(int index) {
-    final document = _documents[index];
+  Widget _documentCard(_DocumentType type) {
+    final document = _latestDocumentFor(type.category);
+    final isUploading = _uploadingCategory == type.category;
 
-    final String status;
-    final Color statusColor;
-    final bool warning;
+    final status = document == null
+        ? 'Non fourni'
+        : _statusLabel(document.status);
 
-    if (document.verified) {
-      status = 'Vérifié';
-      statusColor = AppColors.green;
-      warning = false;
-    } else if (document.fileName != null) {
-      status = 'À transmettre';
-      statusColor = AppColors.orange;
-      warning = true;
-    } else {
-      status = 'Non fourni';
-      statusColor = AppColors.textSecondary;
-      warning = false;
-    }
+    final statusColor = document == null
+        ? AppColors.textSecondary
+        : _statusColor(document.status);
+
+    final isRejected = document != null && _isRejected(document.status);
 
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(13),
       child: InkWell(
         borderRadius: BorderRadius.circular(13),
-        onTap: () => _showDocumentDetails(index),
+        onTap: () => _showDocumentDetails(type),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
@@ -392,15 +692,21 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: warning
-                      ? const Color(0xFFFFF2DC)
-                      : AppColors.lightBlue,
+                  color: isRejected
+                      ? const Color(0xFFFFE8E8)
+                      : document == null
+                      ? AppColors.lightBlue
+                      : const Color(0xFFFFF2DC),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  document.icon,
+                  type.icon,
                   size: 18,
-                  color: warning ? AppColors.orange : AppColors.navy,
+                  color: isRejected
+                      ? Colors.red
+                      : document == null
+                      ? AppColors.navy
+                      : statusColor,
                 ),
               ),
               const SizedBox(width: 10),
@@ -409,7 +715,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      document.title,
+                      type.title,
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -418,7 +724,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      document.fileName ?? 'Aucun fichier sélectionné',
+                      document?.fileName ?? 'Aucun fichier envoyé',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -435,17 +741,34 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                         color: statusColor,
                       ),
                     ),
+                    if (document != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Envoyé le ${_formatDate(document.uploadedAt)}',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(
-                document.fileName == null
-                    ? Icons.add_circle_outline
-                    : Icons.chevron_right,
-                size: 19,
-                color: AppColors.textSecondary,
-              ),
+              if (isUploading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  document == null
+                      ? Icons.add_circle_outline
+                      : Icons.chevron_right,
+                  size: 19,
+                  color: AppColors.textSecondary,
+                ),
             ],
           ),
         ),
@@ -480,9 +803,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Les fichiers sélectionnés ne sont pas envoyés '
-                  'au serveur dans cette version. La transmission '
-                  'sécurisée sera ajoutée lors de la connexion à l’API.',
+                  'Vos documents sont transmis à AYOS par une connexion '
+                  'sécurisée. Ne partagez pas vos pièces administratives '
+                  'avec des personnes non autorisées.',
                   style: TextStyle(
                     fontSize: 9,
                     height: 1.5,
@@ -511,13 +834,49 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 }
 
-class _LocalDocument {
-  _LocalDocument({required this.title, required this.icon});
+class _DocumentType {
+  const _DocumentType({
+    required this.category,
+    required this.title,
+    required this.icon,
+  });
 
+  final String category;
   final String title;
   final IconData icon;
+}
 
-  String? fileName;
-  String? filePath;
-  bool verified = false;
+class _Document {
+  const _Document({
+    required this.id,
+    required this.category,
+    required this.fileName,
+    required this.mimeType,
+    required this.status,
+    this.reviewNote,
+    this.uploadedAt,
+    this.reviewedAt,
+  });
+
+  final String id;
+  final String category;
+  final String fileName;
+  final String mimeType;
+  final String status;
+  final String? reviewNote;
+  final DateTime? uploadedAt;
+  final DateTime? reviewedAt;
+
+  factory _Document.fromJson(Map<String, dynamic> json) {
+    return _Document(
+      id: json['id']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      fileName: json['fileName']?.toString() ?? 'Document',
+      mimeType: json['mimeType']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'PENDING',
+      reviewNote: json['reviewNote']?.toString(),
+      uploadedAt: DateTime.tryParse(json['uploadedAt']?.toString() ?? ''),
+      reviewedAt: DateTime.tryParse(json['reviewedAt']?.toString() ?? ''),
+    );
+  }
 }
