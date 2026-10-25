@@ -17,6 +17,12 @@ class MissionModel {
   final String? source;
   final String? reference;
 
+  // Informations facultatives pour le pointage.
+  final String? organizationId;
+  final DateTime? clockInAt;
+  final DateTime? clockOutAt;
+  final double? clockedHours;
+
   const MissionModel({
     required this.id,
     required this.client,
@@ -35,9 +41,43 @@ class MissionModel {
     this.instructions,
     this.source,
     this.reference,
+    this.organizationId,
+    this.clockInAt,
+    this.clockOutAt,
+    this.clockedHours,
   });
 
   factory MissionModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) {
+        return DateTime(2000);
+      }
+
+      return DateTime.tryParse(value.toString()) ?? DateTime(2000);
+    }
+
+    DateTime? parseOptionalDate(dynamic value) {
+      if (value == null || value is Map || value is List) {
+        return null;
+      }
+
+      final text = value.toString().trim();
+
+      if (text.isEmpty) return null;
+
+      return DateTime.tryParse(text);
+    }
+
+    double? parseOptionalDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+
+      if (value is String) {
+        return double.tryParse(value);
+      }
+
+      return null;
+    }
+
     return MissionModel(
       id: json['id']?.toString() ?? '',
       client: json['client']?.toString() ?? '',
@@ -45,7 +85,7 @@ class MissionModel {
       employeeId: json['employeeId']?.toString() ?? '',
       employee: json['employee']?.toString() ?? '',
       role: json['role']?.toString() ?? '',
-      date: DateTime.parse(json['date'].toString()),
+      date: parseDate(json['date']),
       dateLabel: json['dateLabel']?.toString() ?? '',
       start: json['start']?.toString() ?? '',
       end: json['end']?.toString() ?? '',
@@ -56,16 +96,35 @@ class MissionModel {
       instructions: json['instructions']?.toString(),
       source: json['source']?.toString(),
       reference: json['reference']?.toString(),
+      organizationId: json['organizationId']?.toString(),
+      clockInAt: parseOptionalDate(json['clockInAt']),
+      clockOutAt: parseOptionalDate(json['clockOutAt']),
+      clockedHours: parseOptionalDouble(json['clockedHours']),
     );
   }
 
-  bool get isAccepted => status.trim().toLowerCase() == 'acceptée';
+  String get _normalizedStatus =>
+      status.trim().toLowerCase().replaceAll('é', 'e');
 
-  bool get isProposed => status.trim().toLowerCase() == 'proposée';
+  bool get isAccepted =>
+      _normalizedStatus == 'acceptee';
+
+  bool get isProposed =>
+      _normalizedStatus == 'proposee';
+
+  bool get isStarted =>
+      _normalizedStatus == 'en cours' ||
+      _normalizedStatus == 'en_cours';
+
+  bool get isCompleted =>
+      _normalizedStatus == 'terminee';
+
+  bool get hasClockedIn => clockInAt != null;
+
+  bool get hasClockedOut => clockOutAt != null;
 
   bool isOnOrAfter(DateTime day) {
     final missionDay = DateTime(date.year, date.month, date.day);
-
     final targetDay = DateTime(day.year, day.month, day.day);
 
     return !missionDay.isBefore(targetDay);

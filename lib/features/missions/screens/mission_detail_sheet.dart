@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/mission_service.dart';
 import '../models/mission_model.dart';
+import '../screens/mission_qr_scanner_screen.dart';
 
 class MissionDetailSheet extends StatefulWidget {
   final MissionModel mission;
@@ -38,23 +39,23 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
 
   bool get _isCompleted => _status == 'terminée' || _status == 'terminee';
 
-  DateTime get _missionStart {
-    final parts = widget.mission.start.split(':');
-    final hour = int.tryParse(parts.first) ?? 0;
-    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+  // DateTime get _missionStart {
+  //   final parts = widget.mission.start.split(':');
+  //   final hour = int.tryParse(parts.first) ?? 0;
+  //   final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
 
-    return DateTime(
-      widget.mission.date.year,
-      widget.mission.date.month,
-      widget.mission.date.day,
-      hour,
-      minute,
-    );
-  }
+  //   return DateTime(
+  //     widget.mission.date.year,
+  //     widget.mission.date.month,
+  //     widget.mission.date.day,
+  //     hour,
+  //     minute,
+  //   );
+  // }
 
-  bool get _canCancel =>
-      _isAccepted &&
-      _missionStart.difference(DateTime.now()) > const Duration(hours: 24);
+  // bool get _canCancel =>
+  //     _isAccepted &&
+  //     _missionStart.difference(DateTime.now()) > const Duration(hours: 24);
 
   @override
   void dispose() {
@@ -261,76 +262,72 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
     );
   }
 
-  Future<void> _cancel() async {
-    // Vérification locale avant la confirmation.
-    if (!_canCancel) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'L’annulation est possible uniquement plus de 24 h avant le début.',
-          ),
-        ),
-      );
-      return;
-    }
+  // Future<void> _cancel() async {
+  //   // Vérification locale avant la confirmation.
+  //   if (!_canCancel) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text(
+  //           'L’annulation est possible uniquement plus de 24 h avant le début.',
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
 
-    final confirmed = await _confirm(
-      title: 'Annuler cette mission ?',
-      message: 'Cette action annulera votre mission. Voulez-vous continuer ?',
-      confirmLabel: 'Annuler la mission',
-    );
+  //   final confirmed = await _confirm(
+  //     title: 'Annuler cette mission ?',
+  //     message: 'Cette action annulera votre mission. Voulez-vous continuer ?',
+  //     confirmLabel: 'Annuler la mission',
+  //   );
 
-    if (!confirmed || !mounted) return;
+  //   if (!confirmed || !mounted) return;
 
-    await _runAction(
-      () => _service.cancelMission(widget.mission.id),
-      successMessage: 'Mission annulée.',
+  //   await _runAction(
+  //     () => _service.cancelMission(widget.mission.id),
+  //     successMessage: 'Mission annulée.',
+  //   );
+  // }
+
+  Future<String?> _scanQrCode() async {
+    return Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const MissionQrScannerScreen()),
     );
   }
 
   Future<void> _start() async {
-    final confirmed = await _confirm(
-      title: 'Démarrer la mission ?',
-      message: 'Confirmez-vous le début de votre intervention ?',
-      confirmLabel: 'Démarrer',
-    );
+    final qrToken = await _scanQrCode();
 
-    if (!confirmed || !mounted) return;
+    if (!mounted || qrToken == null) return;
 
     await _runAction(
-      () => _service.startMission(widget.mission.id),
-      successMessage: 'Mission démarrée.',
+      () =>
+          _service.startMission(reference: widget.mission.id, qrToken: qrToken),
+      successMessage: 'Pointage d’entrée enregistré.',
     );
   }
 
   Future<void> _submitHours() async {
-    final hours = double.tryParse(
-      _hoursController.text.trim().replaceAll(',', '.'),
-    );
-
-    if (hours == null || hours <= 0 || hours > 24) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Saisissez un nombre d’heures valide, entre 0 et 24.'),
-        ),
-      );
-      return;
-    }
-
     final confirmed = await _confirm(
-      title: 'Confirmer les heures',
-      message: 'Enregistrer $hours heure(s) effectuée(s) ?',
-      confirmLabel: 'Enregistrer',
+      title: 'Pointer la sortie ?',
+      message:
+          'Scannez le QR Code de votre établissement pour '
+          'enregistrer la fin de votre intervention.',
+      confirmLabel: 'Scanner',
     );
 
     if (!confirmed || !mounted) return;
 
+    final qrToken = await _scanQrCode();
+
+    if (!mounted || qrToken == null) return;
+
     await _runAction(
       () => _service.submitMissionHours(
         reference: widget.mission.id,
-        actualHours: hours,
+        qrToken: qrToken,
       ),
-      successMessage: 'Heures enregistrées.',
+      successMessage: 'Pointage de sortie enregistré.',
     );
   }
 
@@ -459,23 +456,23 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
             icon: Icons.play_arrow,
             onPressed: _start,
           ),
-          if (_canCancel) ...[
-            const SizedBox(height: 10),
-            _actionButton(
-              label: 'Annuler la mission',
-              icon: Icons.event_busy_outlined,
-              outlined: true,
-              onPressed: _cancel,
-            ),
-          ],
-          if (!_canCancel) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'L’annulation n’est plus disponible à moins de 24 h du début.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-            ),
-          ],
+          // if (_canCancel) ...[
+          //   const SizedBox(height: 10),
+          //   _actionButton(
+          //     label: 'Annuler la mission',
+          //     icon: Icons.event_busy_outlined,
+          //     outlined: true,
+          //     onPressed: _cancel,
+          //   ),
+          // ],
+          // if (!_canCancel) ...[
+          //   const SizedBox(height: 8),
+          //   const Text(
+          //     'L’annulation n’est plus disponible à moins de 24 h du début.',
+          //     textAlign: TextAlign.center,
+          //     style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          //   ),
+          // ],
         ],
       );
     }

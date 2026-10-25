@@ -8,6 +8,9 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 
+import '../services/notice_service.dart';
+import 'notice_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -62,6 +65,24 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        final accepted = await NoticeService.hasAccepted();
+
+        if (!mounted) return;
+
+        if (!accepted) {
+          final confirmed = await Navigator.of(
+            context,
+          ).push<bool>(MaterialPageRoute(builder: (_) => const NoticeScreen()));
+
+          if (!mounted) return;
+
+          if (confirmed != true) return;
+
+          await NoticeService.markAsAccepted();
+
+          if (!mounted) return;
+        }
+
         context.go('/app');
       } else {
         setState(() {
@@ -306,20 +327,40 @@ class _LoginScreenState extends State<LoginScreen> {
                   // ====================================================
                   // LOGIN BUTTON
                   // ====================================================
+                  // ====================================================
+                  // LOGIN BUTTON
+                  // ====================================================
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.navy,
+                        foregroundColor: AppColors.white,
+                        disabledBackgroundColor: AppColors.navy.withValues(alpha: 0.6),
+                        disabledForegroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
                       child: isLoading
                           ? const SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.white,
                               ),
                             )
-                          : const Text('Ouvrir mon espace  →'),
+                          : const Text(
+                              'Ouvrir mon espace  →',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],

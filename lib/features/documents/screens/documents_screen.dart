@@ -560,38 +560,38 @@ const SizedBox(height: 0),
     );
   }
 
-  Widget _header() {
-    return Row(
-      children: [
-        Image.asset(
-          'assets/images/logo2.png',
-          width: 70,
-          errorBuilder: (_, _, _) => const Icon(
-            Icons.description_outlined,
-            size: 35,
-            color: AppColors.navy,
-          ),
-        ),
-        const Spacer(),
-        _headerIcon(Icons.wb_sunny_outlined),
-        const SizedBox(width: 8),
-        _headerIcon(Icons.notifications_none),
-        const SizedBox(width: 8),
-        const CircleAvatar(
-          radius: 19,
-          backgroundColor: AppColors.navy,
-          child: Text(
-            'AY',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _header() {
+  //   return Row(
+  //     children: [
+  //       Image.asset(
+  //         'assets/images/logo2.png',
+  //         width: 70,
+  //         errorBuilder: (_, _, _) => const Icon(
+  //           Icons.description_outlined,
+  //           size: 35,
+  //           color: AppColors.navy,
+  //         ),
+  //       ),
+  //       const Spacer(),
+  //       _headerIcon(Icons.wb_sunny_outlined),
+  //       const SizedBox(width: 8),
+  //       _headerIcon(Icons.notifications_none),
+  //       const SizedBox(width: 8),
+  //       const CircleAvatar(
+  //         radius: 19,
+  //         backgroundColor: AppColors.navy,
+  //         child: Text(
+  //           'AY',
+  //           style: TextStyle(
+  //             color: Colors.white,
+  //             fontSize: 11,
+  //             fontWeight: FontWeight.w700,
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _verificationCard() {
     return Container(
@@ -820,18 +820,18 @@ const SizedBox(height: 0),
     );
   }
 
-  Widget _headerIcon(IconData icon) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Icon(icon, size: 17, color: AppColors.textSecondary),
-    );
-  }
+  // Widget _headerIcon(IconData icon) {
+  //   return Container(
+  //     width: 36,
+  //     height: 36,
+  //     decoration: BoxDecoration(
+  //       color: AppColors.white,
+  //       borderRadius: BorderRadius.circular(11),
+  //       border: Border.all(color: AppColors.border),
+  //     ),
+  //     child: Icon(icon, size: 17, color: AppColors.textSecondary),
+  //   );
+  // }
 }
 
 class _DocumentType {

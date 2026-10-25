@@ -57,7 +57,6 @@ class MissionService {
     }
   }
 
-
   Future<void> acceptMission(String reference) async {
     await _postAction('/missions/$reference/accept');
   }
@@ -81,24 +80,21 @@ class MissionService {
     await _postAction('/missions/$reference/cancel');
   }
 
-  Future<void> startMission(String reference) async {
-    await _postAction('/missions/$reference/start');
+  Future<void> startMission({
+    required String reference,
+    required String qrToken,
+  }) async {
+    await _postAction('/missions/$reference/start', data: {'qrToken': qrToken});
   }
 
   Future<void> submitMissionHours({
     required String reference,
-    required double actualHours,
+    required String qrToken,
   }) async {
-    await _postAction(
-      '/missions/$reference/hours',
-      data: {'actualHours': actualHours},
-    );
+    await _postAction('/missions/$reference/hours', data: {'qrToken': qrToken});
   }
 
-  Future<void> _postAction(
-    String path, {
-    Map<String, dynamic>? data,
-  }) async {
+  Future<void> _postAction(String path, {Map<String, dynamic>? data}) async {
     try {
       await _dio.post(path, data: data);
     } on DioException catch (e) {
@@ -108,9 +104,7 @@ class MissionService {
         final message = responseData['message'];
 
         if (message is List) {
-          throw Exception(
-            message.map((item) => item.toString()).join('\n'),
-          );
+          throw Exception(message.map((item) => item.toString()).join('\n'));
         }
 
         throw Exception(message.toString());
@@ -122,10 +116,7 @@ class MissionService {
         );
       }
 
-      throw Exception(
-        'L’action a échoué (${e.response?.statusCode}).',
-      );
+      throw Exception('L’action a échoué (${e.response?.statusCode}).');
     }
   }
-
 }

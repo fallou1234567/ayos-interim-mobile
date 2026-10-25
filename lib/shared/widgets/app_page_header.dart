@@ -103,18 +103,18 @@ class AppPageHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              _HeaderIconButton(
-                icon: isDark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
-                tooltip: isDark
-                    ? 'Activer le mode clair'
-                    : 'Activer le mode sombre',
-                onTap: onThemeTap ??
-                    () {
-                      context.read<ThemeProvider>().toggleTheme();
-                    },
-              ),
+              // _HeaderIconButton(
+              //   icon: isDark
+              //       ? Icons.light_mode_outlined
+              //       : Icons.dark_mode_outlined,
+              //   tooltip: isDark
+              //       ? 'Activer le mode clair'
+              //       : 'Activer le mode sombre',
+              //   onTap: onThemeTap ??
+              //       () {
+              //         context.read<ThemeProvider>().toggleTheme();
+              //       },
+              // ),
               const SizedBox(width: 10),
               _HeaderIconButton(
                 icon: Icons.notifications_none_rounded,

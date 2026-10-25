@@ -44,6 +44,6 @@ class AppTextStyles {
   static const button = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: AppColors.white,
+    color: AppColors.textPrimary,
   );
 }
