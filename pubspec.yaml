@@ -1,8 +1,8 @@
-name: ayos_interim
+name: ayostaff
 description: "Application mobile AYOS Intérim"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+4
 
 environment:
   sdk: ^3.10.0
@@ -23,6 +23,7 @@ dependencies:
   cookie_jar: ^4.0.9
   file_picker: ^11.0.3
   mobile_scanner: ^7.4.2
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
@@ -33,9 +34,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo1.png"
-  min_sdk_android: 21
+  image_path: "assets/images/iconAyos.png"
   remove_alpha_ios: true
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/iconAyos.png"
 
 flutter:
   uses-material-design: true
@@ -44,3 +46,5 @@ flutter:
     - assets/images/splash.png
     - assets/images/logo1.png
     - assets/images/logo2.png
+    - assets/images/LogoAyos1.png
+    - assets/images/LogoAyos2.png

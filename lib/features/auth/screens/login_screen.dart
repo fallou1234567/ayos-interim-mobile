@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 
-import '../services/notice_service.dart';
 import 'notice_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -64,33 +63,61 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      if (success) {
-        final accepted = await NoticeService.hasAccepted();
-
-        if (!mounted) return;
-
-        if (!accepted) {
-          final confirmed = await Navigator.of(
-            context,
-          ).push<bool>(MaterialPageRoute(builder: (_) => const NoticeScreen()));
-
-          if (!mounted) return;
-
-          if (confirmed != true) return;
-
-          await NoticeService.markAsAccepted();
-
-          if (!mounted) return;
-        }
-
-        context.go('/app');
-      } else {
+      if (!success) {
         setState(() {
           errorMessage =
               authProvider.errorMessage ??
               'Une erreur est survenue lors de la connexion.';
         });
+        return;
       }
+
+      // Vérification des obligations juridiques depuis l'API.
+      final legalStatusChecked = await authProvider.refreshLegalStatus();
+
+      if (!mounted) return;
+
+      if (!legalStatusChecked) {
+        setState(() {
+          errorMessage =
+              'Impossible de vérifier vos obligations juridiques. '
+              'Veuillez réessayer.';
+        });
+        return;
+      }
+
+      // Afficher l'écran juridique uniquement si nécessaire.
+      if (authProvider.requiresLegalAction) {
+        final confirmed = await Navigator.of(
+          context,
+        ).push<bool>(MaterialPageRoute(builder: (_) => const NoticeScreen()));
+
+        if (!mounted) return;
+
+        if (confirmed != true) return;
+
+        // Vérification finale auprès du serveur.
+        final refreshed = await authProvider.refreshLegalStatus();
+
+        if (!mounted) return;
+
+        if (!refreshed) {
+          setState(() {
+            errorMessage = 'Impossible de confirmer votre situation juridique.';
+          });
+          return;
+        }
+
+        if (authProvider.requiresLegalAction) {
+          setState(() {
+            errorMessage =
+                'Certaines obligations juridiques restent à satisfaire.';
+          });
+          return;
+        }
+      }
+
+      context.go('/app');
     } catch (e) {
       if (!mounted) return;
 
@@ -337,7 +364,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.navy,
                         foregroundColor: AppColors.white,
-                        disabledBackgroundColor: AppColors.navy.withValues(alpha: 0.6),
+                        disabledBackgroundColor: AppColors.navy.withValues(
+                          alpha: 0.6,
+                        ),
                         disabledForegroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

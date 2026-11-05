@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,10 +7,31 @@ import '../../features/missions/screens/missions_screen.dart';
 import '../../features/planning/screens/planning_screen.dart';
 import '../../features/documents/screens/documents_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import 'messaging_button.dart';
+import '../../features/messaging/screens/messaging_screen.dart';
 import '../navigation/app_navigation.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key});
+
+  void _openMessaging(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black38,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(4),
+          backgroundColor: Colors.transparent,
+          child: SizedBox(
+            width: 880,
+            height: MediaQuery.of(context).size.height * 0.97,
+            child: const MessagingScreen(),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,18 +51,27 @@ class MainShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
+
+      body: Stack(
+        children: [
+          IndexedStack(index: currentIndex, children: screens),
+
+          // Bouton global de messagerie
+          Positioned(
+            top: 60,
+            right: 17,
+            child: SafeArea(
+              child: MessagingButton(onTap: () => _openMessaging(context)),
+            ),
+          ),
+        ],
       ),
+
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
           margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 8,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
@@ -116,14 +145,9 @@ class MainShell extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(
-            vertical: 7,
-            horizontal: 4,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.lightBlue
-                : Colors.transparent,
+            color: isSelected ? AppColors.lightBlue : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -132,21 +156,15 @@ class MainShell extends StatelessWidget {
               Icon(
                 isSelected ? activeIcon : icon,
                 size: 19,
-                color: isSelected
-                    ? AppColors.navy
-                    : AppColors.textSecondary,
+                color: isSelected ? AppColors.navy : AppColors.textSecondary,
               ),
               const SizedBox(height: 3),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 9,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                  color: isSelected
-                      ? AppColors.navy
-                      : AppColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AppColors.navy : AppColors.textSecondary,
                 ),
               ),
             ],

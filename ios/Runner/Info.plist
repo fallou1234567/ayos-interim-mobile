@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ayos Interim</string>
+	<string>AYOS STAFF</string>
 	<key>NSCameraUsageDescription</key>
 	<string>La caméra est utilisée pour scanner le QR Code de pointage de votre établissement.</string>
 	<key>CFBundleExecutable</key>
@@ -24,6 +24,13 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<!-- Accès à la photothèque -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AYOS STAFF a besoin d'accéder à votre photothèque pour vous permettre de sélectionner et d'ajouter des photos à votre profil et à vos documents.</string>
+
+<!-- Accès à la localisation -->
+	<key>NSLocationWhenInUseUsageDescription</key>	
+	<string>AYOS STAFF utilise votre position lorsque vous utilisez l'application afin de fournir les fonctionnalités qui nécessitent votre localisation.</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
