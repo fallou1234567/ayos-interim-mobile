@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../data/mission_service.dart';
 import '../models/mission_model.dart';
 import '../screens/mission_qr_scanner_screen.dart';
+import 'dart:async';
 
 class MissionDetailSheet extends StatefulWidget {
   final MissionModel mission;
@@ -31,7 +32,8 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
 
   String get _status => widget.mission.status.trim().toLowerCase();
 
-  bool get _isProposed => _status == 'proposée' || _status == 'proposee';
+  bool get _isProposed =>
+      _status == 'nouvelle' || _status == 'proposée' || _status == 'proposee';
 
   bool get _isAccepted => _status == 'acceptée' || _status == 'acceptee';
 
@@ -57,8 +59,39 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
   //     _isAccepted &&
   //     _missionStart.difference(DateTime.now()) > const Duration(hours: 24);
 
+  Timer? _startAvailabilityTimer;
+
+  DateTime get _missionStart {
+    final parts = widget.mission.start.split(':');
+
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    final second = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+
+    return DateTime(
+      widget.mission.date.year,
+      widget.mission.date.month,
+      widget.mission.date.day,
+      hour,
+      minute,
+      second,
+    );
+  }
+
+  DateTime get _startAvailableAt =>
+      _missionStart.subtract(const Duration(minutes: 10));
+
+  bool get _canStart =>
+      _isAccepted && !DateTime.now().isBefore(_startAvailableAt);
+
+  Duration get _remainingBeforeStart {
+    final remaining = _startAvailableAt.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
   @override
   void dispose() {
+    _startAvailabilityTimer?.cancel();
     _commentController.dispose();
     _hoursController.dispose();
     super.dispose();
@@ -68,14 +101,19 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
   void initState() {
     super.initState();
 
+    _startAvailabilityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       try {
         await widget.onOpened?.call();
       } catch (_) {
-        // Une erreur de notification ne bloque pas l'ouverture
-        // de la fiche de mission.
+        // Une erreur de notification ne bloque pas l'ouverture.
       }
     });
   }
@@ -392,10 +430,11 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
     Color? background,
     Color foreground = Colors.white,
     bool outlined = false,
+    bool enabled = true,
   }) {
     if (outlined) {
       return OutlinedButton.icon(
-        onPressed: _isLoading ? null : onPressed,
+        onPressed: _isLoading || !enabled ? null : onPressed,
         icon: Icon(icon, size: 17),
         label: Text(label),
         style: OutlinedButton.styleFrom(
@@ -410,7 +449,7 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
     }
 
     return ElevatedButton.icon(
-      onPressed: _isLoading ? null : onPressed,
+      onPressed: _isLoading || !enabled ? null : onPressed,
       icon: Icon(icon, size: 17),
       label: Text(label),
       style: ElevatedButton.styleFrom(
@@ -452,51 +491,25 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _actionButton(
-            label: 'Démarrer la mission',
-            icon: Icons.play_arrow,
+            label: _canStart
+                ? 'Scanner le QR Code'
+                : 'Disponible dans ${_remainingBeforeStart.inHours}h '
+                      '${_remainingBeforeStart.inMinutes.remainder(60)}min',
+            icon: Icons.qr_code_scanner,
+            background: AppColors.navy,
+            enabled: _canStart,
             onPressed: _start,
           ),
-          // if (_canCancel) ...[
-          //   const SizedBox(height: 10),
-          //   _actionButton(
-          //     label: 'Annuler la mission',
-          //     icon: Icons.event_busy_outlined,
-          //     outlined: true,
-          //     onPressed: _cancel,
-          //   ),
-          // ],
-          // if (!_canCancel) ...[
-          //   const SizedBox(height: 8),
-          //   const Text(
-          //     'L’annulation n’est plus disponible à moins de 24 h du début.',
-          //     textAlign: TextAlign.center,
-          //     style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-          //   ),
-          // ],
-        ],
-      );
-    }
 
-    if (_isStarted) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _hoursController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Heures réellement effectuées',
-              hintText: 'Ex. 8',
-              suffixText: 'heures',
-              border: OutlineInputBorder(),
+          if (!_canStart) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Le pointage sera disponible 10 minutes avant '
+              'le début de votre mission.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
-          ),
-          const SizedBox(height: 12),
-          _actionButton(
-            label: 'Enregistrer les heures',
-            icon: Icons.save_outlined,
-            onPressed: _submitHours,
-          ),
+          ],
         ],
       );
     }

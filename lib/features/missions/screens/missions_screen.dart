@@ -59,13 +59,39 @@ class _MissionsScreenState extends State<MissionsScreen> {
     return date.isBefore(_today);
   }
 
+  List<List<MissionModel>> _groupProposals(List<MissionModel> missions) {
+    final Map<String, List<MissionModel>> groups = {};
+
+    for (final mission in missions) {
+      final reference = mission.requestReference?.trim();
+
+      final key = reference == null || reference.isEmpty
+          ? 'MISSION_${mission.id}'
+          : reference;
+
+      groups.putIfAbsent(key, () => []).add(mission);
+    }
+
+    final result = groups.values.toList();
+
+    for (final group in result) {
+      group.sort((a, b) => a.date.compareTo(b.date));
+    }
+
+    result.sort((a, b) => a.first.date.compareTo(b.first.date));
+
+    return result;
+  }
+
   List<MissionModel> _missionsForTab(HomeProvider provider) {
     final missions = provider.missions.where((mission) {
       final status = mission.status.trim().toLowerCase();
 
       switch (selectedTab) {
         case 0: // Propositions
-          return status == 'proposée' || status == 'proposee';
+          return status == 'nouvelle' ||
+              status == 'proposée' ||
+              status == 'proposee';
 
         case 1: // À venir
           return (status == 'acceptée' || status == 'acceptee') &&
@@ -154,6 +180,10 @@ class _MissionsScreenState extends State<MissionsScreen> {
     final provider = context.watch<HomeProvider>();
     final missions = _missionsForTab(provider);
 
+    final displayedGroups = selectedTab == 0
+        ? _groupProposals(missions)
+        : missions.map((mission) => [mission]).toList();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -166,11 +196,11 @@ class _MissionsScreenState extends State<MissionsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const AppPageHeader(
-  sectionLabel: 'MON ACTIVITÉ',
-  title: 'Mes missions',
-  description:
-      'Retrouvez vos propositions, vos missions à venir et votre historique.',
-),
+                  sectionLabel: 'MON ACTIVITÉ',
+                  title: 'Mes missions',
+                  description:
+                      'Retrouvez vos propositions, vos missions à venir et votre historique.',
+                ),
                 // Row(
                 //   children: [
                 //     Image.asset('assets/images/logo2.png', width: 70),
@@ -281,10 +311,13 @@ class _MissionsScreenState extends State<MissionsScreen> {
                 else if (missions.isEmpty)
                   _emptyView()
                 else
-                  ...missions.map(
-                    (mission) => Padding(
+                  ...displayedGroups.map(
+                    (group) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _missionCard(mission),
+                      child: _missionCard(
+                        group.first,
+                        group: selectedTab == 0 ? group : null,
+                      ),
                     ),
                   ),
               ],
@@ -295,7 +328,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
     );
   }
 
-  Widget _missionCard(MissionModel mission) {
+  Widget _missionCard(MissionModel mission, {List<MissionModel>? group}) {
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(13),
@@ -360,7 +393,9 @@ class _MissionsScreenState extends State<MissionsScreen> {
                           color: AppColors.orange,
                         ),
                         Text(
-                          _formatDate(mission.date),
+                          group != null && group.length > 1
+                              ? '${_formatDate(group.first.date)} au ${_formatDate(group.last.date)}'
+                              : _formatDate(mission.date),
                           style: const TextStyle(
                             fontSize: 9,
                             color: AppColors.textSecondary,
@@ -380,6 +415,17 @@ class _MissionsScreenState extends State<MissionsScreen> {
                         ),
                       ],
                     ),
+                    if (group != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '${group.length} ${group.length > 1 ? 'journées regroupées' : 'journée'}',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -430,7 +476,6 @@ class _MissionsScreenState extends State<MissionsScreen> {
       ),
     );
   }
-
 
   Widget _emptyView() {
     final messages = [

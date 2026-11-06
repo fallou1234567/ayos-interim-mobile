@@ -17,7 +17,12 @@ class MissionModel {
   final String? source;
   final String? reference;
 
-  // Informations facultatives pour le pointage.
+  final String? requestReference;
+  final String? blockId;
+  final String? blockLabel;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+
   final String? organizationId;
   final DateTime? clockInAt;
   final DateTime? clockOutAt;
@@ -41,6 +46,11 @@ class MissionModel {
     this.instructions,
     this.source,
     this.reference,
+    this.requestReference,
+    this.blockId,
+    this.blockLabel,
+    this.periodStart,
+    this.periodEnd,
     this.organizationId,
     this.clockInAt,
     this.clockOutAt,
@@ -49,33 +59,33 @@ class MissionModel {
 
   factory MissionModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
-      if (value == null) {
-        return DateTime(2000);
-      }
-
+      if (value == null) return DateTime(2000);
       return DateTime.tryParse(value.toString()) ?? DateTime(2000);
     }
 
     DateTime? parseOptionalDate(dynamic value) {
-      if (value == null || value is Map || value is List) {
-        return null;
-      }
+      if (value == null || value is Map || value is List) return null;
 
       final text = value.toString().trim();
-
       if (text.isEmpty) return null;
 
       return DateTime.tryParse(text);
     }
 
-    double? parseOptionalDouble(dynamic value) {
+    double parseDouble(dynamic value, {double fallback = 0}) {
       if (value is num) return value.toDouble();
-
       if (value is String) {
-        return double.tryParse(value);
+        return double.tryParse(value) ?? fallback;
       }
+      return fallback;
+    }
 
-      return null;
+    int parseInt(dynamic value, {int fallback = 1}) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value) ?? fallback;
+      }
+      return fallback;
     }
 
     return MissionModel(
@@ -89,27 +99,36 @@ class MissionModel {
       dateLabel: json['dateLabel']?.toString() ?? '',
       start: json['start']?.toString() ?? '',
       end: json['end']?.toString() ?? '',
-      duration: (json['duration'] as num?)?.toDouble() ?? 0,
+      duration: parseDouble(json['duration']),
       status: json['status']?.toString() ?? '',
       address: json['address']?.toString() ?? '',
-      headcount: (json['headcount'] as num?)?.toInt() ?? 1,
+      headcount: parseInt(json['headcount']),
       instructions: json['instructions']?.toString(),
       source: json['source']?.toString(),
       reference: json['reference']?.toString(),
+
+      requestReference: json['requestReference']?.toString(),
+      blockId: json['blockId']?.toString(),
+      blockLabel: json['blockLabel']?.toString(),
+      periodStart: parseOptionalDate(json['periodStart']),
+      periodEnd: parseOptionalDate(json['periodEnd']),
+
       organizationId: json['organizationId']?.toString(),
       clockInAt: parseOptionalDate(json['clockInAt']),
       clockOutAt: parseOptionalDate(json['clockOutAt']),
-      clockedHours: parseOptionalDouble(json['clockedHours']),
+      clockedHours: json['clockedHours'] == null
+          ? null
+          : parseDouble(json['clockedHours']),
     );
   }
 
   String get _normalizedStatus =>
       status.trim().toLowerCase().replaceAll('é', 'e');
 
-  bool get isAccepted =>
-      _normalizedStatus == 'acceptee';
+  bool get isAccepted => _normalizedStatus == 'acceptee';
 
   bool get isProposed =>
+      _normalizedStatus == 'nouvelle' ||
       _normalizedStatus == 'proposee';
 
   bool get isStarted =>
@@ -126,7 +145,6 @@ class MissionModel {
   bool isOnOrAfter(DateTime day) {
     final missionDay = DateTime(date.year, date.month, date.day);
     final targetDay = DateTime(day.year, day.month, day.day);
-
     return !missionDay.isBefore(targetDay);
   }
 }

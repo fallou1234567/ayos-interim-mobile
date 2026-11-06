@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 import '../../missions/data/mission_service.dart';
@@ -30,15 +29,36 @@ class HomeProvider extends ChangeNotifier {
     return !date.isBefore(_today);
   }
 
-  List<MissionModel> get opportunities {
-    final result = _missions
+  // Missions proposées, regroupées par demande.
+  List<List<MissionModel>> get opportunityGroups {
+    final proposed = _missions
         .where((mission) => mission.isProposed && _isUpcoming(mission))
         .toList();
 
-    result.sort((a, b) => a.date.compareTo(b.date));
+    proposed.sort((a, b) => a.date.compareTo(b.date));
 
-    return result;
+    final Map<String, List<MissionModel>> groups = {};
+
+    for (final mission in proposed) {
+      final reference = mission.requestReference?.trim();
+
+      // Sans requestReference, on conserve une carte individuelle.
+      final key = reference == null || reference.isEmpty
+          ? 'MISSION_${mission.id}'
+          : reference;
+
+      groups.putIfAbsent(key, () => []).add(mission);
+    }
+
+    return groups.values.map((group) {
+      group.sort((a, b) => a.date.compareTo(b.date));
+      return List<MissionModel>.unmodifiable(group);
+    }).toList();
   }
+
+  // Conservé si d'autres widgets utilisent encore opportunities.
+  List<MissionModel> get opportunities =>
+      opportunityGroups.map((group) => group.first).toList();
 
   MissionModel? get nextMission {
     final accepted = _missions
@@ -47,18 +67,14 @@ class HomeProvider extends ChangeNotifier {
 
     accepted.sort((a, b) {
       final dateComparison = a.date.compareTo(b.date);
-
-      if (dateComparison != 0) {
-        return dateComparison;
-      }
-
+      if (dateComparison != 0) return dateComparison;
       return a.start.compareTo(b.start);
     });
 
     return accepted.isEmpty ? null : accepted.first;
   }
 
-  int get opportunitiesCount => opportunities.length;
+  int get opportunitiesCount => opportunityGroups.length;
 
   Future<void> loadMissions() async {
     _isLoading = true;

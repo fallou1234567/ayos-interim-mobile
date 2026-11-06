@@ -213,7 +213,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildOpportunity(MissionModel mission) {
+  Widget _buildOpportunity(List<MissionModel> group) {
+    final mission = group.first;
+
+    final dates = group.map((m) => m.date).toList()..sort();
+    final firstDate = dates.first;
+    final lastDate = dates.last;
+
+    final dateText =
+        firstDate.year == lastDate.year &&
+            firstDate.month == lastDate.month &&
+            firstDate.day == lastDate.day
+        ? _formatDate(firstDate)
+        : '${_formatDate(firstDate)} au ${_formatDate(lastDate)}';
+
     final initials = mission.clientShort.isNotEmpty
         ? mission.clientShort
         : mission.client.isNotEmpty
@@ -269,27 +282,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${mission.role} · ${_formatDate(mission.date)}',
+                      mission.role,
                       style: const TextStyle(
                         fontSize: 10,
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    _buildStatusBadge(mission.status),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateText,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _buildStatusBadge(mission.status),
+                        const SizedBox(width: 7),
+                        Text(
+                          '${group.length} ${group.length > 1 ? 'journées' : 'journée'}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                mission.start,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 4),
               const Icon(
                 Icons.chevron_right,
                 size: 18,
@@ -351,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final greetingName = firstName.isNotEmpty ? firstName : 'Utilisateur';
 
     final nextMission = homeProvider.nextMission;
-    final opportunities = homeProvider.opportunities;
+    final opportunities = homeProvider.opportunityGroups;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -476,9 +500,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   _emptyMessage('Aucune nouvelle proposition pour le moment.')
                 else
                   ...opportunities.map(
-                    (mission) => Padding(
+                    (group) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _buildOpportunity(mission),
+                      child: _buildOpportunity(group),
                     ),
                   ),
               ],
