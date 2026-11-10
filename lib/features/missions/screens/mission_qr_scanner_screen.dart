@@ -12,9 +12,14 @@ class MissionQrScannerScreen extends StatefulWidget {
       _MissionQrScannerScreenState();
 }
 
-class _MissionQrScannerScreenState extends State<MissionQrScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController();
+class _MissionQrScannerScreenState
+    extends State<MissionQrScannerScreen> {
+  final MobileScannerController _controller =
+      MobileScannerController();
+
   bool _detected = false;
+
+  static const String _qrPrefix = 'ayos:clocking:v1:';
 
   @override
   void dispose() {
@@ -22,20 +27,44 @@ class _MissionQrScannerScreenState extends State<MissionQrScannerScreen> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_detected) return;
 
     for (final barcode in capture.barcodes) {
-      final value = barcode.rawValue;
+      final payload = barcode.rawValue?.trim();
 
-      if (value != null &&
-          value.startsWith('ayos:clocking:v1:')) {
-        _detected = true;
-        _controller.stop();
+      if (payload == null || payload.isEmpty) continue;
 
-        Navigator.of(context).pop(value);
-        return;
+      debugPrint('QR DETECTE : $payload');
+
+      if (!payload.startsWith(_qrPrefix)) {
+        debugPrint('QR IGNORE : format non reconnu');
+        continue;
       }
+
+      // Extraction du token sans le préfixe
+      final qrToken = payload.substring(_qrPrefix.length).trim();
+
+      if (qrToken.isEmpty) {
+        debugPrint('QR IGNORE : token vide');
+        continue;
+      }
+
+      _detected = true;
+
+      debugPrint('QR AYOSTAFF VALIDE');
+      debugPrint('QR TOKEN : $qrToken');
+      debugPrint('FERMETURE DU SCANNER');
+
+      await _controller.stop();
+
+      if (!mounted) return;
+
+      debugPrint('RETOUR VERS LE DETAIL MISSION');
+
+      // Retourne uniquement le token brut
+      Navigator.of(context).pop(qrToken);
+      return;
     }
   }
 

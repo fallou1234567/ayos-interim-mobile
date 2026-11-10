@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
 import '../models/mission_model.dart';
+import 'package:flutter/foundation.dart';
 
 class MissionService {
   final Dio _dio = ApiClient.instance.dio;
@@ -80,24 +81,62 @@ class MissionService {
     await _postAction('/missions/$reference/cancel');
   }
 
+  String _normalizeQrToken(String value) {
+    const prefix = 'ayos:clocking:v1:';
+
+    final token = value.trim();
+
+    if (token.startsWith(prefix)) {
+      return token.substring(prefix.length).trim();
+    }
+
+    if (token.isEmpty) {
+      throw Exception('Le QR Code est invalide.');
+    }
+
+    return token;
+  }
+
   Future<void> startMission({
     required String reference,
     required String qrToken,
   }) async {
-    await _postAction('/missions/$reference/start', data: {'qrToken': qrToken});
+    final token = _normalizeQrToken(qrToken);
+
+    debugPrint('========== POINTAGE ENTREE ==========');
+    debugPrint('MISSION : $reference');
+    debugPrint('QR TOKEN : $token');
+
+    await _postAction('/missions/$reference/start', data: {'qrToken': token});
   }
 
   Future<void> submitMissionHours({
     required String reference,
     required String qrToken,
   }) async {
-    await _postAction('/missions/$reference/hours', data: {'qrToken': qrToken});
+    final token = _normalizeQrToken(qrToken);
+
+    debugPrint('========== POINTAGE SORTIE ==========');
+    debugPrint('MISSION : $reference');
+    debugPrint('QR TOKEN : $token');
+
+    await _postAction('/missions/$reference/hours', data: {'qrToken': token});
   }
 
   Future<void> _postAction(String path, {Map<String, dynamic>? data}) async {
     try {
-      await _dio.post(path, data: data);
+      debugPrint('API POST : $path');
+      debugPrint('BODY : $data');
+
+      final response = await _dio.post(path, data: data);
+
+      debugPrint('HTTP STATUS : ${response.statusCode}');
+      debugPrint('HTTP RESPONSE : ${response.data}');
     } on DioException catch (e) {
+      debugPrint('DIO ERROR : ${e.message}');
+      debugPrint('HTTP STATUS ERROR : ${e.response?.statusCode}');
+      debugPrint('HTTP RESPONSE ERROR : ${e.response?.data}');
+
       final responseData = e.response?.data;
 
       if (responseData is Map && responseData['message'] != null) {

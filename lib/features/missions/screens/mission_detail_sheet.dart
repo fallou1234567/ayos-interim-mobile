@@ -326,48 +326,107 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
   //     successMessage: 'Mission annulée.',
   //   );
   // }
-
   Future<String?> _scanQrCode() async {
-    return Navigator.of(context).push<String>(
+    final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const MissionQrScannerScreen()),
     );
+
+    if (result == null || result.isEmpty) {
+      debugPrint('Aucun QR Token reçu');
+      return null;
+    }
+
+    debugPrint('QR TOKEN REÇU DANS MISSION DETAIL : $result');
+
+    return result;
   }
 
-  Future<void> _start() async {
-    final qrToken = await _scanQrCode();
-
-    if (!mounted || qrToken == null) return;
-
-    await _runAction(
-      () =>
-          _service.startMission(reference: widget.mission.id, qrToken: qrToken),
-      successMessage: 'Pointage d’entrée enregistré.',
-    );
-  }
-
-  Future<void> _submitHours() async {
-    final confirmed = await _confirm(
-      title: 'Pointer la sortie ?',
-      message:
-          'Scannez le QR Code de votre établissement pour '
-          'enregistrer la fin de votre intervention.',
-      confirmLabel: 'Scanner',
-    );
-
-    if (!confirmed || !mounted) return;
+Future<void> _start() async {
+  try {
+    debugPrint('========== DEBUT POINTAGE ENTREE ==========');
 
     final qrToken = await _scanQrCode();
 
-    if (!mounted || qrToken == null) return;
+    if (!mounted || qrToken == null) {
+      debugPrint('POINTAGE ANNULE : aucun token');
+      return;
+    }
 
-    await _runAction(
-      () => _service.submitMissionHours(
-        reference: widget.mission.id,
-        qrToken: qrToken,
+    debugPrint('TOKEN RECU : $qrToken');
+    debugPrint('MISSION ID : ${widget.mission.id}');
+    debugPrint('ENVOI DE LA REQUETE START...');
+
+    await _service.startMission(
+      reference: widget.mission.id,
+      qrToken: qrToken,
+    );
+
+    debugPrint('POINTAGE ENTREE REUSSI');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Pointage d’entrée enregistré avec succès.'),
+        backgroundColor: Colors.green,
       ),
-      successMessage: 'Pointage de sortie enregistré.',
+    );
+
+    widget.onUpdated?.call();
+  } catch (e, stackTrace) {
+    debugPrint('ERREUR POINTAGE ENTREE : $e');
+    debugPrint('$stackTrace');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ),
     );
   }
+}
+
+Future<void> _submitHours() async {
+  try {
+    debugPrint('========== DEBUT POINTAGE SORTIE ==========');
+
+    final qrToken = await _scanQrCode();
+
+    if (!mounted || qrToken == null) return;
+
+    await _service.submitMissionHours(
+      reference: widget.mission.id,
+      qrToken: qrToken,
+    );
+
+    debugPrint('POINTAGE SORTIE REUSSI');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Pointage de sortie enregistré avec succès.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    widget.onUpdated?.call();
+  } catch (e, stackTrace) {
+    debugPrint('ERREUR POINTAGE SORTIE : $e');
+    debugPrint('$stackTrace');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   Widget _infoTile(
     IconData icon,
@@ -510,6 +569,20 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
+        ],
+      );
+    }
+
+    if (_isStarted) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _actionButton(
+            label: 'Scanner pour pointer la sortie',
+            icon: Icons.qr_code_scanner,
+            background: AppColors.orange,
+            onPressed: _submitHours,
+          ),
         ],
       );
     }
