@@ -81,7 +81,7 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
   }
 
   DateTime get _startAvailableAt =>
-      _missionStart.subtract(const Duration(minutes: 10));
+      _missionStart.subtract(const Duration(minutes: 5));
 
   bool get _canStart =>
       _isAccepted && !DateTime.now().isBefore(_startAvailableAt);
