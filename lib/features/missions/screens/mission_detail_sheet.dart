@@ -29,6 +29,8 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
 
   String _declineReason = 'UNAVAILABLE';
   bool _isLoading = false;
+  bool _hasClockedIn = false;
+  bool _hasClockedOut = false;
 
   String get _status => widget.mission.status.trim().toLowerCase();
 
@@ -100,6 +102,8 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
   @override
   void initState() {
     super.initState();
+    _hasClockedIn = widget.mission.hasClockedIn || _isStarted;
+    _hasClockedOut = widget.mission.hasClockedOut || _isCompleted;
 
     _startAvailabilityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
@@ -341,92 +345,99 @@ class _MissionDetailSheetState extends State<MissionDetailSheet> {
     return result;
   }
 
-Future<void> _start() async {
-  try {
-    debugPrint('========== DEBUT POINTAGE ENTREE ==========');
+  Future<void> _start() async {
+    try {
+      debugPrint('========== DEBUT POINTAGE ENTREE ==========');
 
-    final qrToken = await _scanQrCode();
+      final qrToken = await _scanQrCode();
 
-    if (!mounted || qrToken == null) {
-      debugPrint('POINTAGE ANNULE : aucun token');
-      return;
+      if (!mounted || qrToken == null) {
+        debugPrint('POINTAGE ANNULE : aucun token');
+        return;
+      }
+
+      debugPrint('TOKEN RECU : $qrToken');
+      debugPrint('MISSION ID : ${widget.mission.id}');
+      debugPrint('ENVOI DE LA REQUETE START...');
+
+      await _service.startMission(
+        reference: widget.mission.id,
+        qrToken: qrToken,
+      );
+
+      debugPrint('POINTAGE ENTREE REUSSI');
+      if (!mounted) return;
+
+      setState(() {
+        _hasClockedIn = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pointage d’entrée enregistré avec succès.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await widget.onUpdated?.call();
+    } catch (e, stackTrace) {
+      debugPrint('ERREUR POINTAGE ENTREE : $e');
+      debugPrint('$stackTrace');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    debugPrint('TOKEN RECU : $qrToken');
-    debugPrint('MISSION ID : ${widget.mission.id}');
-    debugPrint('ENVOI DE LA REQUETE START...');
-
-    await _service.startMission(
-      reference: widget.mission.id,
-      qrToken: qrToken,
-    );
-
-    debugPrint('POINTAGE ENTREE REUSSI');
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Pointage d’entrée enregistré avec succès.'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    widget.onUpdated?.call();
-  } catch (e, stackTrace) {
-    debugPrint('ERREUR POINTAGE ENTREE : $e');
-    debugPrint('$stackTrace');
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
-Future<void> _submitHours() async {
-  try {
-    debugPrint('========== DEBUT POINTAGE SORTIE ==========');
+  Future<void> _submitHours() async {
+    try {
+      debugPrint('========== DEBUT POINTAGE SORTIE ==========');
 
-    final qrToken = await _scanQrCode();
+      final qrToken = await _scanQrCode();
 
-    if (!mounted || qrToken == null) return;
+      if (!mounted || qrToken == null) return;
 
-    await _service.submitMissionHours(
-      reference: widget.mission.id,
-      qrToken: qrToken,
-    );
+      await _service.submitMissionHours(
+        reference: widget.mission.id,
+        qrToken: qrToken,
+      );
 
-    debugPrint('POINTAGE SORTIE REUSSI');
+      debugPrint('POINTAGE SORTIE REUSSI');
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Pointage de sortie enregistré avec succès.'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      setState(() {
+        _hasClockedOut = true;
+      });
 
-    widget.onUpdated?.call();
-  } catch (e, stackTrace) {
-    debugPrint('ERREUR POINTAGE SORTIE : $e');
-    debugPrint('$stackTrace');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pointage de sortie enregistré avec succès.'),
+          backgroundColor: Colors.green,
+        ),
+      );
 
-    if (!mounted) return;
+      await widget.onUpdated?.call();
+    } catch (e, stackTrace) {
+      debugPrint('ERREUR POINTAGE SORTIE : $e');
+      debugPrint('$stackTrace');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: Colors.red,
-      ),
-    );
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
   Widget _infoTile(
     IconData icon,
@@ -521,6 +532,29 @@ Future<void> _submitHours() async {
   }
 
   Widget _buildActions() {
+    // 1. Pointage de sortie déjà effectué
+    if (_hasClockedOut || _isCompleted) {
+      return _actionButton(
+        label: 'Pointage déjà effectué',
+        icon: Icons.check_circle,
+        background: Colors.grey.shade300,
+        foreground: Colors.grey.shade700,
+        enabled: false,
+        onPressed: () {},
+      );
+    }
+
+    // 2. Pointage d'entrée effectué : scanner pour la sortie
+    if (_hasClockedIn || _isStarted) {
+      return _actionButton(
+        label: 'Scanner le QR Code pour la sortie',
+        icon: Icons.qr_code_scanner,
+        background: AppColors.orange,
+        onPressed: _submitHours,
+      );
+    }
+
+    // 3. Nouvelle proposition
     if (_isProposed) {
       return Row(
         children: [
@@ -545,13 +579,14 @@ Future<void> _submitHours() async {
       );
     }
 
+    // 4. Mission acceptée : scanner pour l'entrée
     if (_isAccepted) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _actionButton(
             label: _canStart
-                ? 'Scanner le QR Code'
+                ? 'Scanner le QR Code pour l’entrée'
                 : 'Disponible dans ${_remainingBeforeStart.inHours}h '
                       '${_remainingBeforeStart.inMinutes.remainder(60)}min',
             icon: Icons.qr_code_scanner,
@@ -559,7 +594,6 @@ Future<void> _submitHours() async {
             enabled: _canStart,
             onPressed: _start,
           ),
-
           if (!_canStart) ...[
             const SizedBox(height: 8),
             const Text(
@@ -569,20 +603,6 @@ Future<void> _submitHours() async {
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
-        ],
-      );
-    }
-
-    if (_isStarted) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _actionButton(
-            label: 'Scanner pour pointer la sortie',
-            icon: Icons.qr_code_scanner,
-            background: AppColors.orange,
-            onPressed: _submitHours,
-          ),
         ],
       );
     }
